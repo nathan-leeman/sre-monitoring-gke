@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Data Service</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .price-up {
+            color: #10B981;
+        }
+        .price-down {
+            color: #EF4444;
+        }
+        .card {
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">Market Data Dashboard</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="market-data">
+            <!-- Market data cards will be inserted here -->
+        </div>
+
+        <div class="mt-8 text-center text-gray-600">
+            <p>Last updated: <span id="last-update">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        let previousPrices = {};
+
+        function formatPrice(price) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(price);
+        }
+
+        function getPriceClass(currentPrice, previousPrice) {
+            if (!previousPrice) return '';
+            return currentPrice > previousPrice ? 'price-up' : 'price-down';
+        }
+
+        function updateMarketData() {
+            fetch('/prices')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('market-data');
+                    container.innerHTML = '';
+
+                    data.forEach(item => {
+                        const previousPrice = previousPrices[item.symbol];
+                        const priceClass = getPriceClass(item.price, previousPrice);
+                        
+                        const card = document.createElement('div');
+                        card.className = 'card bg-white rounded-lg shadow p-6';
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start mb-4">
+                                <h2 class="text-xl font-bold text-gray-800">${item.symbol}</h2>
+                                <span class="text-sm text-gray-500">${new Date(item.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Price:</span>
+                                    <span class="font-semibold ${priceClass}">${formatPrice(item.price)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Bid:</span>
+                                    <span class="font-semibold">${formatPrice(item.bid)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Ask:</span>
+                                    <span class="font-semibold">${formatPrice(item.ask)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Spread:</span>
+                                    <span class="font-semibold">${formatPrice(item.ask - item.bid)}</span>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+
+                    previousPrices = Object.fromEntries(
+                        data.map(item => [item.symbol, item.price])
+                    );
+
+                    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+                })
+                .catch(error => {
+                    console.error('Error fetching market data:', error);
+                });
+        }
+
+        // Update immediately and then every 2 seconds
+        updateMarketData();
+        setInterval(updateMarketData, 2000);
+    </script>
+</body>
+</html> 
