@@ -9,7 +9,7 @@ steps:
  - name: "gcr.io/cloud-builders/gke-deploy"
  args:
  - run
- - --filename=kubernetes
+ - --filename=kubernetes/deployment.yaml
  - --image=gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest
  - location=us-east1-b
  - cluster=cluster-1
