@@ -1,17 +1,25 @@
 steps:
-  - name : "gcr.io/cloud-builders/docker"
-  args: ["build", "-t", "gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest", "."]
+  # Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["build", "-t", "gcr.io/$PROJECT_ID/market-data-service:latest", "."]
+  
   # Push Image to GCR
   - name: "gcr.io/cloud-builders/docker"
-  args: ["push", "gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest"]
-  #Deploy to GKE
+    args: ["push", "gcr.io/$PROJECT_ID/market-data-service:latest"]
+  
+  # Deploy to GKE
   - name: "gcr.io/cloud-builders/gke-deploy"
-  args:
-  - run
-  - --filename=kubernetes/deployment.yaml
-  - --image=gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest
-  - location=us-east1-b
-  - cluster=cluster-1
+    args:
+      - run
+      - --filename=kubernetes/deployment.yaml
+      - --filename=kubernetes/service.yaml
+      - --image=gcr.io/$PROJECT_ID/market-data-service:latest
+      - --location=${_CLUSTER_LOCATION}
+      - --cluster=${_CLUSTER_NAME}
 
+substitutions:
+  _CLUSTER_LOCATION: us-east1-b
+  _CLUSTER_NAME: cluster-1
 
-
+options:
+  logging: CLOUD_LOGGING_ONLY
