@@ -1,0 +1,18 @@
+steps:
+ -name : "gcr.io/cloud-builders/docker"
+ args: ["build", "-t", "gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest", "."]
+
+ # Push Image to GCR
+ - name: "gcr.io/cloud-builders/docker"
+ args: ["push", "gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest"]
+ #Deploy to GKE
+ - name: "gcr.io/cloud-builders/gke-deploy"
+ args:
+ - run
+ - --filename=kubernetes
+ - --image=gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest
+ - location=us-east1-b
+ - cluster=cluster-1
+
+
+
