@@ -11,8 +11,7 @@ steps:
   - name: "gcr.io/cloud-builders/gke-deploy"
     args:
       - run
-      - --filename=kubernetes/deployment.yaml
-      - --filename=kubernetes/service.yaml
+      - --filename=kubernetes/
       - --image=gcr.io/$PROJECT_ID/market-data-service:latest
       - --location=${_CLUSTER_LOCATION}
       - --cluster=${_CLUSTER_NAME}
