@@ -16,10 +16,12 @@ steps:
       - --image=gcr.io/$PROJECT_ID/market-data-service:latest
       - --location=${_CLUSTER_LOCATION}
       - --cluster=${_CLUSTER_NAME}
+      - --namespace=${_NAMESPACE}
 
 substitutions:
   _CLUSTER_LOCATION: us-east1-b
   _CLUSTER_NAME: cluster-1
+  _NAMESPACE: default
 
 options:
   logging: CLOUD_LOGGING_ONLY
