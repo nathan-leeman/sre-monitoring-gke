@@ -20,8 +20,8 @@ spec:
     spec:
       containers:
       - name: market-data-service
-        image: market-data-service:latest
-        imagePullPolicy: IfNotPresent
+        image: gcr.io/voltaic-cirrus-460305-c6/market-data-service:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 5000
         env:
