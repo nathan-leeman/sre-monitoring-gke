@@ -1,0 +1,85 @@
+# OpenTelemetry Collector Configuration (commented for future use)
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: otel-collector-config
+# data:
+#   config.yaml: |
+#     receivers:
+#       otlp:
+#         protocols:
+#           grpc:
+#             endpoint: 0.0.0.0:4317
+#           http:
+#             endpoint: 0.0.0.0:4318
+# 
+#     processors:
+#       batch:
+#         timeout: 1s
+#         send_batch_size: 1024
+# 
+#     exporters:
+#       googlecloud:
+#         project: voltaic-cirrus-460305-c6
+#         metric:
+#           endpoint: monitoring.googleapis.com:443
+#         trace:
+#           endpoint: cloudtrace.googleapis.com:443
+# 
+#     service:
+#       pipelines:
+#         traces:
+#           receivers: [otlp]
+#           processors: [batch]
+#           exporters: [googlecloud]
+#         metrics:
+#           receivers: [otlp]
+#           processors: [batch]
+#           exporters: [googlecloud]
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: otel-collector
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: otel-collector
+#   template:
+#     metadata:
+#       labels:
+#         app: otel-collector
+#     spec:
+#       serviceAccountName: monitoring-sa
+#       containers:
+#       - name: otel-collector
+#         image: otel/opentelemetry-collector-contrib:latest
+#         args: ["--config=/conf/config.yaml"]
+#         volumeMounts:
+#         - name: otel-collector-config
+#           mountPath: /conf
+#         ports:
+#         - containerPort: 4317
+#           name: grpc
+#         - containerPort: 4318
+#           name: http
+#       volumes:
+#       - name: otel-collector-config
+#         configMap:
+#           name: otel-collector-config
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: otel-collector
+# spec:
+#   selector:
+#     app: otel-collector
+#   ports:
+#   - name: grpc
+#     port: 4317
+#     targetPort: 4317
+#   - name: http
+#     port: 4318
+#     targetPort: 4318 
