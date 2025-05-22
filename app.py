@@ -1,5 +1,8 @@
 import random
 import time
+import json
+import logging
+import os
 from datetime import datetime
 from flask import Flask, jsonify, send_from_directory
 from prometheus_client import Counter, Histogram, generate_latest
@@ -8,8 +11,31 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from google.cloud import monitoring_v3
+from google.cloud.monitoring_v3 import MetricServiceClient
 
 app = Flask(__name__, static_folder='static')
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def log_structured(message, **kwargs):
+    """Helper function for structured logging"""
+    log_entry = {
+        "message": message,
+        "timestamp": datetime.utcnow().isoformat(),
+        **kwargs
+    }
+    logger.info(json.dumps(log_entry))
+
+# Initialize Google Cloud Monitoring
+try:
+    client = monitoring_v3.MetricServiceClient()
+    project_id = client.project_path(os.getenv('GOOGLE_CLOUD_PROJECT', 'default-project'))
+except Exception as e:
+    log_structured("Failed to initialize Google Cloud Monitoring", error=str(e))
+    client = None
 
 # Initialize OpenTelemetry
 trace.set_tracer_provider(TracerProvider())
@@ -46,8 +72,35 @@ def generate_price(symbol):
         'timestamp': datetime.utcnow().isoformat()
     }
 
+def write_custom_metric(metric_name, value, labels=None):
+    """Write a custom metric to Google Cloud Monitoring"""
+    if not client:
+        return
+
+    try:
+        series = monitoring_v3.TimeSeries()
+        series.metric.type = f'custom.googleapis.com/{metric_name}'
+        series.resource.type = 'global'
+        series.resource.labels['project_id'] = project_id.split('/')[-1]
+
+        if labels:
+            series.metric.labels.update(labels)
+
+        point = monitoring_v3.Point()
+        point.value.double_value = value
+        now = time.time()
+        point.interval.end_time.seconds = int(now)
+        series.points = [point]
+
+        client.create_time_series(project_id, [series])
+    except Exception as e:
+        log_structured("Failed to write custom metric", 
+                      metric_name=metric_name, 
+                      error=str(e))
+
 @app.route('/')
 def index():
+    log_structured("Serving index page")
     return send_from_directory('static', 'index.html')
 
 @app.route('/prices')
@@ -63,17 +116,30 @@ def get_prices():
         if random.random() < 0.05:
             ERROR_COUNT.inc()
             span.set_status(trace.Status(trace.StatusCode.ERROR))
+            log_structured("Error occurred in get_prices", 
+                         error="Internal server error",
+                         status_code=500)
             return jsonify({'error': 'Internal server error'}), 500
         
         prices = [generate_price(symbol) for symbol in SYMBOLS]
         
         # Record latency
-        REQUEST_LATENCY.observe(time.time() - start_time)
+        latency = time.time() - start_time
+        REQUEST_LATENCY.observe(latency)
+        
+        # Write custom metrics
+        write_custom_metric('market_data/latency', latency)
+        write_custom_metric('market_data/price_count', len(prices))
+        
+        log_structured("Successfully retrieved prices", 
+                      price_count=len(prices),
+                      latency=latency)
         
         return jsonify(prices)
 
 @app.route('/health')
 def health_check():
+    log_structured("Health check requested")
     return jsonify({'status': 'healthy'}), 200
 
 @app.route('/metrics')
@@ -81,4 +147,5 @@ def metrics():
     return generate_latest()
 
 if __name__ == '__main__':
+    log_structured("Starting market data service")
     app.run(host='0.0.0.0', port=5000) 
